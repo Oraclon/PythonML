@@ -31,11 +31,13 @@ class SLOPE:
         self.sdb = 0;
     
         self.predictions: list;
+        self.pred_derivs: list;
         self.derivs: list;
 
     def Predict(self, inputs: list):
         predictions = [ (self.w * input) + self.b  for input in inputs];
         activations = None;
+
         if(self.activation == "tanh"):
             activations= [ Tahn.Get(p) for p in predictions ];
         elif(self.activation == "relu"):
