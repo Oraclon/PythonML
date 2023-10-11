@@ -1,6 +1,26 @@
 import random as r;
 import math;
 
+class MODEL:
+    def __init__(self):
+        self.bid: int;
+        self.fid: int;
+        self.epoch: int;
+        self.epochs: int;
+
+        self.a = 0.4;
+        self.slopes = [];
+    
+        self.b1 = 0.9;
+        self.b2 = 0.999;
+        self.e= pow(10, -8);
+        self.d: int;
+    
+    def SetEpochs(self, epochs: int):
+        self.epochs = epochs;
+    def SetLearning(self, learning: float):
+        self.a = learning;
+
 class Tanh:
     def Get( prediction: float):
         return math.tanh(prediction);
@@ -32,10 +52,14 @@ class SLOPE:
         self. w = r.random() - .5;
         self.vdw = 0;
         self.sdw = 0;
+        self.vdw_c: float;
+        self.sdw_c: float;
 
         self.b = 0;
         self.vdb = 0;
         self.sdb = 0;
+        self.vdb_c: float;
+        self.sdb_c: float;
     
         self.predictions: list;
         self.pred_derivs: list;
@@ -47,30 +71,58 @@ class SLOPE:
 
         if(self.activation == "tanh"):
             activations= [ Tanh.Get(p) for p in predictions ];
+            self.pred_derivs= [ 1 - pow(p,2) for p in activations];
         elif(self.activation == "relu"):
             activations= [ ReLU.Get(p) for p in predictions ];
+            self.pred_derivs = [ 0 if p <= 0 else 1 for p in activations];
         elif(self.activation == "sigmoid"):
             activations = [ Sigmoid.Get(p) for p in predictions ];
+            self.pred_derivs = [ p * (1- p) for p in activations ];
         else:
             self.predictions= predictions;
         self.predictions = activations;
-
-class MODEL:
-    def __init__(self):
-        self.bid: int;
-        self.fid: int;
-        self.epoch: int;
-        self.epochs: int;
-
-        self.a = 0.4;
-        self.slopes = [];
     
-        self.b1 = 0.9;
-        self.b2 = 0.999;
-        self.e= pow(10, -8);
-        self.d: int;
+    def OptimizeVars(self, ders: list, model: MODEL, isbias: bool):
+        j= sum(ders) / model.d;
+        j_pow= sum([pow(x, 2) for x in ders]) / model.d;
+
+        if not isbias:
+            old_vdw    = model.b1 * self.vdw + (1 - model.b1) * j;
+            self.vdw   = old_vdw;
+            vdw_c      = self.vdw / (1 - pow(model.b1, model.d));
+
+            old_sdw    = model.b2 * self.sdw + (1 - model.b2) * j_pow;
+            self.sdw   = old_sdw;
+            sdw_c      = self.sdw / (1 - pow(model.b2, model.d));
+
+            tmp_w      = self.w - model.a * vdw_c / (math.sqrt(sdw_c) + model.e);
+            self.w     = tmp_w;
+
+        else:
+            old_vdb    = model.b1 * self.vdb + (1 - model.b1) * j;
+            self.vdb   = old_vdb;
+            vdb_c      = self.vdb / (1 - pow(model.b1, model.d));
     
-    def SetEpochs(self, epochs: int):
-        self.epochs = epochs;
-    def SetLearning(self, learning: float):
-        self.a = learning;
+            old_sdb    = model.b2 * self.sdb + (1 - model.b2) * j_pow;
+            self.sdb   = old_sdb;
+            sdb_c      = self.sdb / (1 - pow(model.b2, model.d));
+    
+            tmp_b      = self.w - model.a * vdb_c / (math.sqrt(sdb_c) + model.e);
+            self.b     = tmp_b;
+    
+    def UpdateW(self, model : MODEL, ders: list, active_optimizer: bool):
+        tmp_w = 0;
+        if (active_optimizer):
+            self.OptimizeVars(ders, model, False);
+        else:
+            tmp_w  = self.w - model.a * sum(ders) / model.d;
+            self.w = tmp_w;
+    
+    def UpdateB(self, model: MODEL, ders: list, active_optimizer: bool):
+        tmp_b = 0;
+        if(active_optimizer):
+            self.OptimizeVars(ders, model, True);
+        else:
+            tmp_b  = self.b - model.a * sum(ders) / model.d;
+            self.b = tmp_b;
+
