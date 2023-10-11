@@ -3,10 +3,15 @@ import math;
 
 class MODEL:
     def __init__(self):
-        self.bid: int;
-        self.fid: int;
-        self.epoch: int;
-        self.epochs: int;
+        self.bid    : int;
+        self.fid    : int;
+
+        self.epoch  : int;
+        self.epochs : int;
+
+        self.error  : float;
+        self.errors : list;
+        self.error_ders: list;
 
         self.a = 0.4;
         self.slopes = [];
@@ -14,7 +19,7 @@ class MODEL:
         self.b1 = 0.9;
         self.b2 = 0.999;
         self.e= pow(10, -8);
-        self.d: int;
+        self.d      : int;
     
     def SetEpochs(self, epochs: int):
         self.epochs = epochs;
@@ -50,20 +55,22 @@ class SLOPE:
         self.activation = activation;
 
         self. w = r.random() - .5;
-        self.vdw = 0;
-        self.sdw = 0;
-        self.vdw_c: float;
-        self.sdw_c: float;
+        self.vdw      = 0;
+        self.sdw      = 0;
+        self.vdw_c    : float;
+        self.sdw_c    : float;
 
-        self.b = 0;
-        self.vdb = 0;
-        self.sdb = 0;
-        self.vdb_c: float;
-        self.sdb_c: float;
+        self.b        = 0;
+        self.vdb      = 0;
+        self.sdb      = 0;
+        self.vdb_c    : float;
+        self.sdb_c    : float;
     
-        self.predictions: list;
-        self.pred_derivs: list;
-        self.derivs: list;
+        self.acts     : list;
+        self.act_ders : list;
+
+        self.derivs   : list;
+        self.derivs_w : list
 
     def Predict(self, inputs: list):
         predictions = [ (self.w * input) + self.b  for input in inputs];
@@ -71,16 +78,16 @@ class SLOPE:
 
         if(self.activation == "tanh"):
             activations= [ Tanh.Get(p) for p in predictions ];
-            self.pred_derivs= [ 1 - pow(p,2) for p in activations];
+            self.act_ders= [ 1 - pow(p,2) for p in activations];
         elif(self.activation == "relu"):
             activations= [ ReLU.Get(p) for p in predictions ];
-            self.pred_derivs = [ 0 if p <= 0 else 1 for p in activations];
+            self.act_ders = [ 0 if p <= 0 else 1 for p in activations];
         elif(self.activation == "sigmoid"):
             activations = [ Sigmoid.Get(p) for p in predictions ];
-            self.pred_derivs = [ p * (1- p) for p in activations ];
+            self.act_ders = [ p * (1- p) for p in activations ];
         else:
-            self.predictions= predictions;
-        self.predictions = activations;
+            self.acts= predictions;
+        self.acts = activations;
     
     def OptimizeVars(self, ders: list, model: MODEL, isbias: bool):
         j= sum(ders) / model.d;
@@ -110,19 +117,22 @@ class SLOPE:
             tmp_b      = self.w - model.a * vdb_c / (math.sqrt(sdb_c) + model.e);
             self.b     = tmp_b;
     
-    def UpdateW(self, model : MODEL, ders: list, active_optimizer: bool):
+    def UpdateW(self, model : MODEL, active_optimizer: bool):
         tmp_w = 0;
         if (active_optimizer):
-            self.OptimizeVars(ders, model, False);
+            pass;
         else:
-            tmp_w  = self.w - model.a * sum(ders) / model.d;
+            tmp_w  = self.w - model.a * sum(self.derivs_w) / model.d;
             self.w = tmp_w;
     
-    def UpdateB(self, model: MODEL, ders: list, active_optimizer: bool):
+    def UpdateB(self, model: MODEL, active_optimizer: bool):
         tmp_b = 0;
         if(active_optimizer):
-            self.OptimizeVars(ders, model, True);
+            pass;
         else:
-            tmp_b  = self.b - model.a * sum(ders) / model.d;
+            tmp_b  = self.b - model.a * sum(self.derivs) / model.d;
             self.b = tmp_b;
 
+    def CalcDerivs(self, error_deriv_before: list, respect_to_input: list):
+        self.derivs     = [ ed * ad for ed, ad in zip(error_deriv_before, self.act_ders)];
+        self.derivs_w   = [ d * i for d,i in zip(self.derivs, respect_to_input) ];
