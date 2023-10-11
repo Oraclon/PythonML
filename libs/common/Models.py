@@ -1,9 +1,9 @@
 import random as r;
 import math;
 
-class Tahn:
+class Tanh:
     def Get( prediction: float):
-        return math.tahn(prediction);
+        return math.tanh(prediction);
 
 class ReLU:
     def Get( prediction: float ):
@@ -16,6 +16,13 @@ class Sigmoid:
 class DVAL:
     input: list;
     target: float;
+
+class SCALER:
+    def __init__(self):
+        self.m   : float;
+        self.s   : float;
+        self.min : float;
+        self.max : float;
 
 class SLOPE:
     def __init__(self, activation: str):
@@ -39,11 +46,11 @@ class SLOPE:
         activations = None;
 
         if(self.activation == "tanh"):
-            activations= [ Tahn.Get(p) for p in predictions ];
+            activations= [ Tanh.Get(p) for p in predictions ];
         elif(self.activation == "relu"):
             activations= [ ReLU.Get(p) for p in predictions ];
         elif(self.activation == "sigmoid"):
-            activations = [ Sigmoid.get(predictions) ];
+            activations = [ Sigmoid.Get(p) for p in predictions ];
         else:
             self.predictions= predictions;
         self.predictions = activations;

@@ -1,18 +1,32 @@
-from libs.common.Models import MODEL, SLOPE, DVAL;
+from libs.common.Models import MODEL, SLOPE;
+from libs.common.DatasetGenerator import DemoDataset;
+
+import numpy as np;
 import random as r;
 import math;
+import os;
+
+os.system("clear");
 
 class BCD:
-    def Train(model: MODEL, batches: list):
+    def Predict(self, model: MODEL, input: float):
+        z1 = model.s1.w * input + model.s1.b;
+        a1 = math.tanh(z1);
+        z2 = model.s2.w * a1 + model.s2.b;
+        a2 = math.tanh(z2);
+        z3 = model.s3.w * a2 + model.s3.b;
+        return round(1 / (1 + math.exp(-z3)));
 
-        model.s1 = SLOPE(activation= 'tahn');
-        model.s2 = SLOPE(activation= 'tahn');
+    def Train(self, model: MODEL, batches: list):
+
+        model.s1 = SLOPE(activation= 'tanh');
+        model.s2 = SLOPE(activation= 'tanh');
         model.s3 = SLOPE(activation= 'sigmoid');
 
-        for model.epoch in range(model.epochs):
+        for model.epoch in range(1, model.epochs):
             for model.bid, batch in enumerate(batches):
                 model.d = len(batch);
-                inputs  = [x.input[0] for x in batch];
+                inputs  = [x.input for x in batch];
                 targets = [x.target for x in batch];
                 
                 model.s1.Predict(inputs);
@@ -50,17 +64,36 @@ class BCD:
                 model.s2.b = tmp_b2;
                 tmp_b1     = model.s1.b - model.a * db1;
                 model.s1.b = tmp_b1;
+            
+                if(model.error <= pow(10, -2)):
+                    break;
+            if(model.error <= pow(10, -2)):
+                break;
+            
             print(model.error);
             pass
 
-class DemoDataset:
-    def __init__(self, datasetsize: int, batchsize: int, commonvar: float, isbinary: bool):
+model    = MODEL();
+model.SetEpochs(10000);
+model.SetLearning(.4);
 
-        self.dataset = [];
+data     = DemoDataset(140000, 256, 2, True);
+batches  = data.batches;
+to_train = batches[:-10];
+to_eval  = batches[-10:];
 
-        for i in range(1, datasetsize):
-            dval = DVAL();
-            dval.input  = [ i ];
-            dval.target = i * commonvar if not isbinary else 0 if i <= datasetsize/commonvar else 1;
-            self.dataset.append(dval);
-        r.shuffle(self.dataset);
+bcd      = BCD();
+bcd.Train(model= model, batches= to_train);
+
+correct, wrong, acc= 0,0,0;
+for batch in to_eval:
+    for item in batch:
+        pred = bcd.Predict(model, item.input[0]);
+        targ = item.target;
+        if pred == targ:
+            correct += 1;
+        else:
+            wrong += 1;
+
+print(f'{model.epoch} : {model.bid} | {correct} : {wrong} | {((correct * 100))/(correct + wrong)}%')
+pass
