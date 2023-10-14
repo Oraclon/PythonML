@@ -6,11 +6,6 @@ from libs.common.DatasetGenerator import DemoDataset;
 
 os.system("clear");
 
-class RetModel:
-    def __init__(self):
-        self.Activation      : float;
-        self.ActivationDeriv : float;
-
 class Model:
     def __init__(self,  loss_function: int):
 
@@ -33,8 +28,8 @@ class Model:
         self.Errors           : list;
         self.ErrorDerivatives : list;
 
-        self.w1               = r.random();
-        self.b1               = 0
+        self.BatchID          : int;
+        self.EpochNO          : int;
 
     def GetError(self, latest_activation: list, targets: list):
         
@@ -61,177 +56,137 @@ class Node:
         # 0 : Tahn
         # 1 : Sigmoid
 
-        self.NodeID           = layer_id;
-        self.ActivationDerivs : list;
-        self.Activations      : list;
-        self.Activation       = activation;
-        self.W                = r.random() - .4;
-        self.B                = 0;
-        self.J                : list;
-        self.JW               : list;
+        self.NodeID              = layer_id;
+        self.ActivationDerivs    : list;
+        self.Activations         : list;
+        self.W                   = r.random() - .4;
+        self.B                   = 0;
+        self.Js                  : list;
+        self.JWs                 : list;
+        self.SelectedActivation  = activation;
+        self.Vdw                 = 0;
+        self.Sdw                 = 0;
+        self.Vdb                 = 0;
+        self.Sdb                 = 0;
     
-    def NodePredict(self, input: float) -> RetModel:
-        
-        Prediction = self.W * input + self.B;
-        Ret        = RetModel();
+    def NodeEval(self, input: float) -> float:
+        prediction = self.W * input + self.B;
+        activation = 0;
 
-        if self.Activation == 0:
-            Ret.Activation      = math.tanh(Prediction);
-            Ret.ActivationDeriv = 1 - pow(Ret.Activation,2);
-        if self.Activation == 1:
-            Ret.Activation      = 1 / (1 + math.exp(- Prediction));
-            Ret.ActivationDeriv = Ret.Activation * (1 - Ret.Activation);
-        
-        return Ret;
+        if self.SelectedActivation == 0:
+            activation = math.tanh(prediction);
+        elif self.SelectedActivation == 1:
+            return round(1 / (1 + math.exp(-prediction)));
 
-    def NodeSetActivationDerivs(self, activation_derivs: list):
-        self.ActivationDerivs = activation_derivs;
+        return activation;
 
-    def NodeSetActivations(self, activations: list):
-        self.Activations = activations;
+    def NodePredict(self, inputs: list):
 
-    def NodeCalcDerivatives(self, prev_derivs: list, resp_to: list):
-        self.J = [ d * a for d,a in zip(prev_derivs, self.ActivationDerivs) ];
-        self.Jw = [ d * i for d, i in zip(self.J, resp_to) ];
-    
-    def NodeUpdate(self, model: Model):
-
-        tmp_w = self.W - model.Learning * sum(self.Jw) / model.D;
-        self.W = tmp_w;
-
-        tmp_b= self.B - model.Learning * sum(self.J) / model.D;
-        self.B= tmp_b;
-
-class Layer:
-    def __init__(self, nodes_size: int, node_activation: int):
-        '''
-            Node Activations:
-            - 0 : Tanh
-            - 1 : Sigmoid
-        '''
-        
-        self.NodeActivationType   = node_activation
-        self.TotalNodes           = nodes_size;
-        self.Nodes                = [];
-        self.NodeActivations      : list;
-        self.NodeActivationDerivs : list;
-        self.NodeJS               : list;
-    
-        self.BuildNodes();
-    
-    def BuildNodes(self):
-        for i in range(self.TotalNodes):
-            node= Node(self.NodeActivationType, i+1);
-            self.Nodes.append(node);
-        pass
-    
-    def TrainNodes(self, inputs: list):
-        node: Node;
-
-        node_activations       = []
-        node_activation_derivs = []
+        acts     = [];
+        act_ders = [];
 
         for input in inputs:
-            for node_id, node in enumerate(self.Nodes):
-                node_result = node.NodePredict(input)
-                node_activations.append(node_result.Activation);
-                node_activation_derivs.append(node_result.ActivationDeriv);
+            prediction = self.W * input + self.B;
+            
+            if self.SelectedActivation == 0:
+                activation = math.tanh(prediction)
+                acts.append(activation);
+                act_ders.append(1 - pow(activation, 2));
+            elif self.SelectedActivation == 1:
+                activation = 1/ (1 + math.exp(-prediction));
+                acts.append(activation);
+                act_ders.append(activation * (1- activation));
         
-        self.NodeActivations      = node_activations;
-        self.NodeActivationDerivs = node_activation_derivs;
-        pass
+        self.Activations      = acts;
+        self.ActivationDerivs = act_ders;
+    
+    def GetNodeDerivs(self,  previous_derivative: list, respect_to : list):
+        self.Js  = [ pd * ad for pd, ad in zip(previous_derivative, self.ActivationDerivs) ];
+        self.JWs = [ j * rt for j, rt in zip(self.Js, respect_to) ];
 
-    def GetNodeDerivatives(self, previous_layer_derivs: list, respect_to: list):
-        node_derivatives = [];
-        node: Node;
-        for node in self.Nodes:
-            node.NodeCalcDerivatives(previous_layer_derivs, respect_to);
-            node_derivatives.append(node.J);
-        
-        self.JS = node_derivatives;
+    def NodeUpdate(self, model: Model):
+        self.OptimizeW(model, self.JWs);
+        self.OptimizeB(model, self.Js);
 
-Dataset = DemoDataset(300000, 256, 2, True);
+    def OptimizeW(self, model: Model, derivs: list):
+        jw  = sum(derivs) / model.D;
+        jw2 = sum([pow(x,2) for x in derivs]) / model.D;
+
+        old_vdw  = model.B1 * self.Vdw + (1 - model.B1) * jw;
+        self.Vdw = old_vdw;
+        old_sdw  = model.B2 * self.Sdw + (1 - model.B2) * jw2;
+        self.Sdw = old_sdw;
+
+        vdw_c     = self.Vdw / (1- pow(model.B1, model.D));
+        sdw_c     = self.Sdw / (1- pow(model.B2, model.D));
+
+        tmpw      = self.W - model.Learning * vdw_c / (math.sqrt(sdw_c)+ model.E);
+        self.W    = tmpw;
+
+    def OptimizeB(self, model: Model, derivs: list):
+        jb  = sum(derivs) / model.D;
+        jb2 = sum([pow(x, 2) for x in derivs]) / model.D;
+
+        old_vdb   = model.B1 * self.Vdb + (1 - model.B1) * jb;
+        self.Vdb  = old_vdb;
+        old_sdb   = model.B2 * self.Sdb + (1 - model.B2) * jb2;
+        self.Sdb  = old_sdb;
+
+        vdb_c     = self.Vdb / (1 - pow(model.B1, model.D));
+        sdb_c     = self.Sdb / (1 - pow(model.B2, model.D));
+
+        tmpb      = self.B - model.Learning * vdb_c / (math.sqrt(sdb_c) + model.E);
+        self.b  = tmpb;
+
+Dataset = DemoDataset(300000, 1024, 2, True);
 to_train = Dataset.batches[: -8]
 to_eval  = Dataset.batches[-8 :]
 
 model   = Model(1);
 
-Layer1 = Layer(1, 0);
-Layer2 = Layer(1, 1);
+node1   = Node(0, 1);
+node2   = Node(0, 2);
+node3   = Node(1, 3);
 
-w1, w2 = 0.4, 0.6;
-b1, b2 = 0  ,   0,
 
-def Predict(w, b, i):
-    return w * i + b;
-def Sigmoid(prediction):
-    return 1 / (1 + math.exp(-prediction));
-
-def OptimizeW(model: Model, derivs: list):
-    jw  = sum(derivs) / model.D;
-    jw2 = sum([pow(x,2) for x in derivs]) / model.D;
-
-    old_vdw   = model.B1 * model.Vdw + (1 - model.B1) * jw;
-    model.Vdw = old_vdw;
-    old_sdw   = model.B2 * model.Sdw + (1 - model.B2) * jw2;
-    model.Sdw = old_sdw;
-
-    vdw_c     = model.Vdw / (1- pow(model.B1, model.D));
-    sdw_c     = model.Sdw / (1- pow(model.B2, model.D));
-
-    tmpw      = model.w1 - model.Learning * vdw_c / (math.sqrt(sdw_c)+ model.E);
-    model.w1  = tmpw;
-
-def OptimizeB(model: Model, derivs: list):
-    jb  = sum(derivs) / model.D;
-    jb2 = sum([pow(x, 2) for x in derivs]) / model.D;
-
-    old_vdb   = model.B1 * model.Vdb + (1 - model.B1) * jb;
-    model.Vdb = old_vdb;
-    old_sdb   = model.B2 * model.Sdb + (1 - model.B2) * jb2;
-    model.Sdb = old_sdb;
-
-    vdb_c     = model.Vdb / (1 - pow(model.B1, model.D));
-    sdb_c     = model.Sdb / (1 - pow(model.B2, model.D));
-
-    tmpb      = model.b1 - model.Learning * vdb_c / (math.sqrt(sdb_c) + model.E);
-    model.b1  = tmpb;
-
-for _ in range(10000):
-    for batch in to_train:
+for model.EpochNO in range(10000):
+    for model.BatchID, batch in enumerate(to_train):
 
         inputs = [x.input for x in batch];
         targets = [x.target for x in batch];
         model.D = len(batch);
 
-        pred = [Predict(model.w1, model.b1, input) for input in inputs]
-        act  = [Sigmoid(p) for p in pred]
-        actD = [a * (1-a) for a in act];
-    
-        # errors= [-math.log(a) if t == 1 else -math.log(1-a) for a,t in zip(act, targets)];
-        # errorsD = [-1 / a if t == 1 else 1/ (1-a) for a,t in zip(act, targets)];
-        # model.Error = sum(errors) / model.D;
-        model.GetError(act, targets)
-    
-        j2  = [ e * a for e,a in zip(model.ErrorDerivatives, actD) ];
-        j2w = [ j * float(i) for j,i in zip(j2,  inputs) ];
+        node1.NodePredict(inputs);
+        node2.NodePredict(node1.Activations);
+        node3.NodePredict(node2.Activations);
 
-        OptimizeW(model, j2w);
-        OptimizeB(model, j2);
+        model.GetError(node3.Activations, targets);
+
+        node3.GetNodeDerivs(model.ErrorDerivatives, node2.Activations)
+        node2.GetNodeDerivs(node3.Js, node1.Activations);
+        node1.GetNodeDerivs(node2.Js, inputs);
+
+        node3.NodeUpdate(model);
+        node2.NodeUpdate(model);
+        node1.NodeUpdate(model);
 
         if(model.Error <= pow(10, -4)):
             break;
     if(model.Error <= pow(10, -4)):
+        print(model.EpochNO, model.BatchID);
         break;
-    print(_+1, model.Error, end='\r')
 
-c,w,a= 0,0, 0;
+def Eval(batches: list):
+    c,w,a= 0,0, 0;
+    for batch in batches:
+        for item in batch:
+            pred1 = node1.NodeEval(item.input);
+            pred2 = node2.NodeEval(pred1)
+            pred  = node3.NodeEval(pred2);
+            if(pred == item.target):
+                c+= 1;
+            else:
+                w+= 1;
+    print(f"Correct: [{c}] Wrong: [{w}] Acc: [{ round((c*100)/(c+w), 4) }%]");
 
-for batch in to_eval:
-    for item in batch:
-        pred = round( Sigmoid(Predict(model.w1, model.b1, item.input)) )
-        if(pred == item.target):
-            c+= 1;
-        else:
-            w+= 1;
-print(f"Correct: [{c}] Wrong: [{w}] Acc: [{ round((c*100)/(c+w), 4) }%]")
+Eval(to_eval);
