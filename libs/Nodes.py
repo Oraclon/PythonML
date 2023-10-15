@@ -76,7 +76,7 @@ class Node:
         act_ders = [];
 
         for input in inputs:
-            prediction = self.W * input + self.B;
+            prediction = np.dot(self.W , input) + self.B;
             
             if self.SelectedActivation == 0:
                 activation = math.tanh(prediction)
@@ -89,6 +89,7 @@ class Node:
         
         self.Activations      = acts;
         self.ActivationDerivs = act_ders;
+        pass
     
     def GetNodeDerivs(self,  previous_derivative: list, respect_to : list):
         w= self.W;
@@ -100,7 +101,13 @@ class Node:
         self.JWs = jws;
 
     def NodeUpdate(self, model: Model):
-        pass
+        for i, w in enumerate(self.W):
+            jw= sum(self.JWs[i]) / model.D;
+            tmpw = w - model.Learning * jw;
+            w = tmpw;
+        j = sum(self.Js) / model.D;
+        tmpb = self.B - model.Learning * j;
+        self.B = tmpb;
         # self.OptimizeW(model, self.JWs);
         # self.OptimizeB(model, self.Js);
 

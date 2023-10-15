@@ -31,9 +31,22 @@ class Layer:
             Activation      : float;
             ActivationDeriv : float;
         """
+        node: Node;
+        data= []
         layer_id    = self.LayerId;
         nodes_total = self.TotalNodes;
-        pass
+        for input in inputs:
+            activations = [];
+            for node in self.Nodes:
+                pred = node.NodeLayerPredict(input);
+                if nodes_total > 1:
+                    activations.append(pred.Activation);
+                else:
+                    data.append(pred.Activation)
+            if nodes_total > 1:
+                data.append(activations);
+        
+        self.NodeActivations = data;
     
     def NodesGetJs(self, previous_activations :list, respect_to :list):
         pass;
