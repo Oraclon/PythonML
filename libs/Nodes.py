@@ -1,6 +1,11 @@
 import math;
+import numpy as np;
 import random as r;
 from libs.Model import Model;
+
+class NodeRetModel:
+    Activation      : float;
+    ActivationDeriv : float;
 
 class Node:
     def __init__(self, activation: int, layer_id: int):
@@ -21,7 +26,39 @@ class Node:
         self.Sdw                 = 0;
         self.Vdb                 = 0;
         self.Sdb                 = 0;
+        self.NodeIsUpdated       = False;
     
+    def __PrepareNode(self, feature_len: int):
+        w   = [];
+        vdw = [];
+        sdw = [];
+
+        for _ in range(feature_len):
+            w.append(r.random() - .5);
+            vdw.append(0);
+            sdw.append(0);
+        
+        self.W   = w;
+        self.Vdw = vdw;
+        self.Sdw = sdw;
+    
+        self.NodeIsUpdated = True;
+
+    def NodeLayerPredict(self, input: float)-> NodeRetModel:
+
+        if not self.NodeIsUpdated:
+            self.__PrepareNode(len(input));
+
+        prediction = np.dot(self.W , input) + self.B;
+        ret_model  = NodeRetModel();
+        if self.SelectedActivation  == 0:
+            ret_model.Activation      = math.tanh(prediction);
+            ret_model.ActivationDeriv = 1 - pow(ret_model.Activation, 2);
+        elif self.SelectedActivation == 1:
+            ret_model.Activation      = 1 / (1 + math.exp(-prediction));
+            ret_model.ActivationDeriv = ret_model.Activation * (1 - ret_model.Activation);
+        return ret_model;
+
     def NodeEval(self, input: float) -> float:
         prediction = self.W * input + self.B;
         activation = 0;

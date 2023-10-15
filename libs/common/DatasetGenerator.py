@@ -12,7 +12,7 @@ class DemoDataset:
 
         for i in range(1, datasetsize):
             dval = DVAL();
-            dval.input  = [ i ];
+            dval.input  = [ i, -(i*100) ];
             dval.target = i * commonvar if not isbinary else 0 if i <= datasetsize/commonvar else 1;
             self.dataset.append(dval);
         r.shuffle(self.dataset);
