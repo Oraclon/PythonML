@@ -1,4 +1,5 @@
 from libs.Nodes import Node;
+from libs.Model import Model;
 import numpy as np;
 
 class Layer:
@@ -30,22 +31,18 @@ class Layer:
             Activation      : float;
             ActivationDeriv : float;
         """
-        data= []
-        node: Node;
-        for node in self.Nodes:
-            node_activations= []
-            for input in inputs:
-                node_answer = node.NodeLayerPredict(input);
-                node_activations.append(node_answer.Activation);
-            data.append(node_activations);
-        self.NodeActivations= list(zip(*data));
+        layer_id    = self.LayerId;
+        nodes_total = self.TotalNodes;
+        pass
     
     def NodesGetJs(self, previous_activations :list, respect_to :list):
-        pp = [sum(x) for x in previous_activations]
+        pass;
+
+    def NodesUpdate(self, model: Model):
         node: Node;
         for node in self.Nodes:
-            node.GetNodeDerivs(previous_activations, respect_to);
-            pass
+            node.NodeUpdate(model);
+
     
 
 # -(w1) 

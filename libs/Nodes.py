@@ -38,7 +38,7 @@ class Node:
             vdw.append(0);
             sdw.append(0);
         
-        self.W   = w;
+        self.W = w;
         self.Vdw = vdw;
         self.Sdw = sdw;
     
@@ -91,12 +91,18 @@ class Node:
         self.ActivationDerivs = act_ders;
     
     def GetNodeDerivs(self,  previous_derivative: list, respect_to : list):
+        w= self.W;
         self.Js  = [ pd * ad for pd, ad in zip(previous_derivative, self.ActivationDerivs) ];
-        self.JWs = [ j * rt for j, rt in zip(self.Js, respect_to) ];
+        jws= []
+        for i in range(len(self.W)):
+            jw = [ j * rt for j, rt in zip(self.Js, respect_to[i]) ];
+            jws.append(jw)
+        self.JWs = jws;
 
     def NodeUpdate(self, model: Model):
-        self.OptimizeW(model, self.JWs);
-        self.OptimizeB(model, self.Js);
+        pass
+        # self.OptimizeW(model, self.JWs);
+        # self.OptimizeB(model, self.Js);
 
     def OptimizeW(self, model: Model, derivs: list):
         jw  = sum(derivs) / model.D;

@@ -28,7 +28,10 @@ for model.EpochNO in range(10000):
         model.GetError(Layer2.NodeActivations, targets)
 
         Layer2.NodesGetJs(model.ErrorDerivatives, Layer1.NodeActivations);
+        Layer1.NodesGetJs(Layer2.NodeJs, inputs);
         
+        Layer2.NodesUpdate(model);
+        Layer1.NodesUpdate(model);
 
         print(f"{model.EpochNO+1, model.Error}", end="\r")
         pass
